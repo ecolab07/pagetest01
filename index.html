@@ -1,9 +1,61 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Example</title>
-    </head>
-    <body>
-        <p>This is an example of a simple HTML page with one paragraph.</p>
-    </body>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Boucles causales</title>
+  <style>
+    html,body{margin:0;height:100%;overflow:hidden;background:#05070b;color:#e8edf5;font:14px system-ui,sans-serif}
+    #graph{position:fixed;inset:0} #ui{position:fixed;left:16px;top:16px;padding:12px 14px;background:#0b1018cc;border:1px solid #273244;border-radius:10px;backdrop-filter:blur(8px)}
+    button{background:#151d2a;color:#e8edf5;border:1px solid #39475c;border-radius:7px;padding:7px 10px;cursor:pointer} button:hover{background:#202b3c}
+    .hint{opacity:.65;margin-top:8px;font-size:12px}
+  </style>
+</head>
+<body>
+<div id="graph"></div><div id="ui"><b>Feedback loops</b><br><button id="pulse">Injecter une perturbation</button><div class="hint">clic = perturbation · glisser = caméra · molette = zoom</div></div>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/3d-force-graph@1.79.0/dist/3d-force-graph.min.js"></script>
+<script>
+const nodes=[
+ {id:'A',name:'A'}, {id:'B',name:'B'}, {id:'C',name:'C'}, {id:'D',name:'D'},
+ {id:'E',name:'E'}, {id:'F',name:'F'}, {id:'G',name:'G'}, {id:'H',name:'H'}
+];
+const links=[
+ {source:'A',target:'B',w:1},{source:'B',target:'C',w:.9},{source:'C',target:'D',w:1},{source:'D',target:'A',w:.8},
+ {source:'E',target:'F',w:1},{source:'F',target:'G',w:.8},{source:'G',target:'H',w:1},{source:'H',target:'E',w:.7},
+ {source:'B',target:'F',w:.65},{source:'G',target:'C',w:.55}
+];
+const particles=[];
+const graph=ForceGraph3D()(document.getElementById('graph'))
+ .backgroundColor('#05070b').showNavInfo(false)
+ .nodeLabel(n=>n.name).nodeVal(n=>3+n.energy*5)
+ .nodeColor(n=>n.flash>0?'#fff':'#78a7ff')
+ .linkDirectionalArrowLength(5).linkDirectionalArrowRelPos(1)
+ .linkDirectionalParticles(l=>Math.min(2,Math.ceil(l.w*2)))
+ .linkDirectionalParticleSpeed(.004).linkWidth(1)
+ .graphData({nodes,links});
+
+function pulse(start='A',energy=1){
+  particles.push({node:start,energy,age:0});
+  nodes.find(n=>n.id===start).flash=1;
+}
+function tick(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.age++;
+    const outs=links.filter(l=>(l.source.id||l.source)===p.node);
+    if(p.age%18===0){
+      if(!outs.length||p.energy<.08){particles.splice(i,1);continue}
+      const l=outs[Math.floor(Math.random()*outs.length)], next=l.target.id||l.target;
+      const e=p.energy*l.w; p.node=next;p.energy=e;p.age=0;
+      const n=nodes.find(n=>n.id===next);n.energy=e;n.flash=Math.min(1,e);
+    }
+  }
+  nodes.forEach(n=>{n.energy=(n.energy||0)*.94;n.flash=(n.flash||0)*.9});
+  graph.nodeColor(n=>n.flash>.05?'#fff':'#78a7ff').nodeVal(n=>3+(n.energy||0)*7);
+}
+setInterval(tick,30);
+document.getElementById('pulse').onclick=()=>pulse('A',1);
+graph.onNodeClick(n=>pulse(n.id,1));
+</script>
+</body>
 </html>
